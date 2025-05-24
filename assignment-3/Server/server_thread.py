@@ -4,6 +4,8 @@ import threading
 import logging
 import sys
 import time
+import json
+import base64
 from file_protocol import FileProtocol
 
 fp = FileProtocol()
@@ -18,34 +20,32 @@ class ProcessTheClient(threading.Thread):
         buffer = ""
         while True:
             try:
-                # Receive data in a buffer
                 data = self.connection.recv(8192)
                 if data:
                     buffer += data.decode()
-                    logging.warning(f"Received request: {buffer[:100]}...")
+                    logging.warning(f"Received data: {buffer[:50]}...")  # Log first 50 chars
 
-                    # Check if we have a complete command (for uploads, we'll assume data is complete after a short delay)
-                    if "UPLOAD" in buffer and len(buffer) > 1000:
-                        # For upload commands, wait a bit to ensure all data is received
-                        time.sleep(0.5)
-                        more_data = self.connection.recv(8192)
-                        if more_data:
-                            buffer += more_data.decode()
+                    if "\r\n" in buffer:
+                        # Extract command and parameters
+                        command_line = buffer.strip()
+                        parts = command_line.split(" ", 2)  # Split into at most 3 parts
                         
-                        # Process the complete upload command
-                        response = fp.proses_string(buffer) + "\r\n\r\n"
-                        self.connection.sendall(response.encode())
-                        break
-                    elif buffer.strip() and not "UPLOAD" in buffer:
-                        # For other commands, process immediately
-                        response = fp.proses_string(buffer) + "\r\n\r\n"
+                        # Parse command
+                        command = parts[0].lower() if parts else ""
+                        filename = parts[1] if len(parts) > 1 else ""
+                        content = parts[2] if len(parts) > 2 else None
+                        
+                        # Special handling for UPLOAD which contains base64 data
+                        if command == "upload" and content:
+                            # Content is already base64 encoded from client
+                            pass
+                            
+                        # Process the command with the new protocol interface
+                        result = fp.proses_string(command, filename, content)
+                        response = json.dumps(result) + "\r\n\r\n"
                         self.connection.sendall(response.encode())
                         break
                 else:
-                    # If no more data and we have something in buffer, process it
-                    if buffer:
-                        response = fp.proses_string(buffer) + "\r\n\r\n"
-                        self.connection.sendall(response.encode())
                     break
             except Exception as e:
                 logging.error(f"Error: {str(e)}")
@@ -53,7 +53,7 @@ class ProcessTheClient(threading.Thread):
         self.connection.close()
 
 class Server(threading.Thread):
-    def __init__(self, ipaddress='0.0.0.0', port=6667):
+    def __init__(self, ipaddress='0.0.0.0', port=8889):
         self.ipinfo = (ipaddress, port)
         self.the_clients = []
         self.my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,7 +76,7 @@ class Server(threading.Thread):
                 sys.exit(0)
 
 def main():
-    svr = Server(ipaddress='0.0.0.0', port=6667)
+    svr = Server(ipaddress='0.0.0.0', port=8889)
     svr.start()
 
 if __name__ == "__main__":

@@ -6,14 +6,23 @@ ATURAN PROTOKOL:
 - string harus dalam format
   REQUEST spasi PARAMETER
 - PARAMETER dapat berkembang menjadi PARAMETER1 spasi PARAMETER2 dan seterusnya
+- Untuk upload file, client harus mengirimkan content file dalam format base64
 
 REQUEST YANG DILAYANI:
 - informasi umum:
-  * Jika request tidak dikenali akan menghasilkan pesan
-    - status: ERROR
-    - data: request tidak dikenali
-  * Semua result akan diberikan dalam bentuk JSON dan diakhiri
+  * Jika request tidak dikenali akan menghasilkan pesan "Invalid request format\r\n"
+  * Semua result operasi file akan diberikan dalam bentuk JSON dan diakhiri
     dengan character ascii code #13#10#13#10 atau "\r\n\r\n"
+
+TIME
+* TUJUAN: untuk mendapatkan waktu dari server
+* PARAMETER: tidak ada
+* RESULT: "JAM HH:MM:SS\r\n" (format teks, bukan JSON)
+
+QUIT
+* TUJUAN: untuk mengakhiri koneksi
+* PARAMETER: tidak ada
+* RESULT: "Goodbye!\r\n" (format teks, bukan JSON)
 
 LIST
 * TUJUAN: untuk mendapatkan daftar seluruh file yang dilayani oleh file server
@@ -43,7 +52,11 @@ UPLOAD
 * TUJUAN: untuk mengunggah file ke server
 * PARAMETER:
   - PARAMETER1 : nama file
-  - PARAMETER2 : isi file dalam bentuk base64
+* PROTOCOL FLOW:
+  1. Client mengirim "UPLOAD <filename>\r\n"
+  2. Server menjawab "READY\r\n"
+  3. Client mengirim konten file dalam base64 diakhiri "\r\n\r\n"
+  4. Server memproses upload dan mengirim hasil
 * RESULT:
 - BERHASIL:
   - status: OK
@@ -63,3 +76,6 @@ DELETE
 - GAGAL:
   - status: ERROR
   - data: pesan kesalahan
+
+PENJELASAN TAMBAHAN:
+Server telah ditingkatkan untuk mendukung operasi file (LIST, GET, UPLOAD, DELETE) sambil mempertahankan kompatibilitas dengan perintah lama (TIME, QUIT). Semua operasi file menggunakan encoding base64 untuk konten biner, memungkinkan transfer file aman melalui koneksi teks. Server menggunakan threading untuk menangani multiple client secara bersamaan. Protokol UPLOAD menggunakan sistem dua tahap untuk memungkinkan client mengirim file besar dengan aman.
