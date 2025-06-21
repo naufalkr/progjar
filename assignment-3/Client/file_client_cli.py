@@ -4,22 +4,19 @@ import base64
 import logging
 import os
 
-server_address = ('172.16.16.101', 8889)  # Default server address
-
+server_address = ('172.16.16.101', 8889) 
 def send_command(command_str=""):
     global server_address
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(server_address)
     logging.warning(f"connecting to {server_address}")
     try:
-        # Make sure command ends with \r\n
         if not command_str.endswith("\r\n"):
             command_str += "\r\n"
             
         logging.warning(f"Sending command: {command_str.strip()}")
         sock.sendall(command_str.encode())
         
-        # Wait for response
         data_received = ""
         while True:
             data = sock.recv(8192)
@@ -30,7 +27,6 @@ def send_command(command_str=""):
             else:
                 break
         
-        # Extract JSON response before the end marker
         if data_received:
             clean_data = data_received.split("\r\n\r\n")[0]
             hasil = json.loads(clean_data)
@@ -46,15 +42,12 @@ def send_command(command_str=""):
 
 def remote_upload(filename=""):
     try:
-        # Get full path of the file in the files directory
         filepath = os.path.join("./files", filename)
         
-        # Check if file exists
         if not os.path.exists(filepath):
             print(f"File {filename} tidak ditemukan di direktori files")
             return False
             
-        # Read file content in binary mode and encode to base64
         with open(filepath, 'rb') as fp:
             file_content = fp.read()
             file_content_b64 = base64.b64encode(file_content).decode()
